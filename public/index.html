@@ -12,14 +12,22 @@ main{max-width:720px;margin:auto;padding:18px 14px 40px}.hero,.card{background:v
 label{display:block;font-size:14px;margin:12px 0 6px}textarea,select{width:100%;background:#0e0e14;color:var(--text);border:1px solid:var(--border);border-radius:12px;padding:13px;font-size:16px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{width:100%;min-height:48px;border-radius:12px;padding:10px 14px;font-size:15px;font-weight:800;cursor:pointer}.primary{border:0;background:linear-gradient(90deg,var(--accent),#6f6bff);color:#fff}
 video{width:100%;max-height:560px;border-radius:16px;background:#000;margin-top:12px}.status{margin-top:10px;color:var(--muted);font-size:14px;min-height:20px}
-@media(max-width:520px){.grid{grid-template-columns:1fr}}
+.header-actions{display:flex;gap:10px;justify-content:flex-end}
+.auth-form{display:flex;gap:8px}
+.input-small{width:180px;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0e0e14;color:var(--text)}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.auth-form{flex-direction:column}}
 </style>
 </head>
 <body>
 <main>
 <section class="hero">
-  <span class="brand">🎬 ClapIA Video</span>
-  <span class="credits">⚡ <span id="credits">20</span></span>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span class="brand">🎬 ClapIA Video</span>
+    <div class="header-actions">
+      <span class="credits">⚡ <span id="credits">—</span></span>
+      <div id="authArea"></div>
+    </div>
+  </div>
   <div class="muted" style="clear:both;margin-top:7px">Transforme une idée en vidéo IA.</div>
 </section>
 
@@ -55,10 +63,68 @@ video{width:100%;max-height:560px;border-radius:16px;background:#000;margin-top:
 const $ = id => document.getElementById(id);
 const promptEl=$("prompt"), ratio=$("ratio"), duration=$("duration"), style=$("style");
 const generate=$("generate"), status=$("status"), output=$("output"), video=$("video"), download=$("download"), creditsEl=$("credits");
+const authArea=$("authArea");
+
+function authHeader(){
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
+function renderAuth() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    authArea.innerHTML = `
+      <div class="auth-form">
+        <input id="email" class="input-small" placeholder="email@example.com" />
+        <input id="password" type="password" class="input-small" placeholder="Mot de passe" />
+        <button id="btnLogin" class="primary" style="width:auto;padding:8px 12px">Se connecter</button>
+        <button id="btnRegister" style="width:auto;padding:8px 12px">S'inscrire</button>
+      </div>
+    `;
+    $('#btnLogin').addEventListener('click', login);
+    $('#btnRegister').addEventListener('click', register);
+  } else {
+    authArea.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="btnLogout" style="padding:8px 12px">Se déconnecter</button>
+      </div>
+    `;
+    $('#btnLogout').addEventListener('click', () => { localStorage.removeItem('token'); renderAuth(); loadCredits(); });
+  }
+}
+
+async function register(){
+  const email = $('#email').value.trim();
+  const password = $('#password').value;
+  if(!email || !password) return alert('Email et mot de passe requis');
+  try{
+    const res = await fetch('/api/register', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error||'Erreur');
+    localStorage.setItem('token', data.token);
+    renderAuth();
+    loadCredits();
+  }catch(e){alert(e.message)}
+}
+
+async function login(){
+  const email = $('#email').value.trim();
+  const password = $('#password').value;
+  if(!email || !password) return alert('Email et mot de passe requis');
+  try{
+    const res = await fetch('/api/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error||'Erreur');
+    localStorage.setItem('token', data.token);
+    renderAuth();
+    loadCredits();
+  }catch(e){alert(e.message)}
+}
 
 async function loadCredits(){
   try{
-    const res = await fetch('/api/credits');
+    const headers = Object.assign({'Content-Type':'application/json'}, authHeader());
+    const res = await fetch('/api/credits', { headers });
     if(res.ok){
       const data = await res.json();
       creditsEl.textContent = data.credits ?? 0;
@@ -68,6 +134,7 @@ async function loadCredits(){
   } catch(e){ creditsEl.textContent = 0 }
 }
 
+renderAuth();
 loadCredits();
 
 generate.addEventListener("click", async () => {
@@ -81,9 +148,9 @@ generate.addEventListener("click", async () => {
   output.hidden=true;
 
   try{
+    const headers = Object.assign({'Content-Type':'application/json'}, authHeader());
     const response=await fetch("/api/generate",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({prompt:finalPrompt,aspect_ratio:ratio.value,duration:duration.value})
+      method:"POST",headers,body:JSON.stringify({prompt:finalPrompt,aspect_ratio:ratio.value,duration:duration.value})
     });
     const data=await response.json();
     if(!response.ok) throw new Error(data.error||"Erreur serveur");

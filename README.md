@@ -5,28 +5,26 @@ MVP mobile-first pour générer une vidéo IA depuis un prompt.
 ## Architecture
 - `public/` : interface mobile (index.html déplacé ici)
 - `server.js` : serveur Express + appel fal.ai
-- La clé `FAL_KEY` reste côté serveur et n'est jamais exposée au navigateur.
+- Authentification minimale : register/login via email+password (JWT)
+- Crédits stockés en Redis (recommandé) ou mémoire (fallback éphémère)
 
-## Crédit système
-- Les crédits sont gérés côté serveur (stockage en mémoire, éphémère).
-- Endpoints disponibles:
-  - `GET /api/credits` : récupérer le nombre de crédits pour le client
-  - `POST /api/generate` : génère la vidéo et déduit automatiquement les crédits (coût par défaut 5)
-
-> Remarque : pour la production, stockez les crédits dans une base persistante (Redis, Postgres) et ajoutez une authentification.
+## Endpoints
+- `POST /api/register` {email,password} -> { token, credits }
+- `POST /api/login` {email,password} -> { token, credits }
+- `GET /api/credits` -> { credits } (auth optional)
+- `POST /api/generate` { prompt, aspect_ratio, duration } -> { videoUrl, credits }
 
 ## Lancer
 1. Installer Node.js 20+
 2. Copier `.env.example` vers `.env`
-3. Mettre ta clé fal.ai dans `FAL_KEY`
+3. Mettre ta clé fal.ai dans `FAL_KEY` et (optionnel) `REDIS_URL`, `JWT_SECRET`
 4. `npm install`
 5. `npm start`
 6. Ouvrir `http://localhost:3000`
 
-## Modèle par défaut
-`fal-ai/veo3.1`
-
-Le modèle peut être changé avec `VIDEO_MODEL`.
+## Docker
+Un Dockerfile est fourni. Pour construire : `docker build -t clapia-video .` puis `docker run -p 3000:3000 --env-file .env clapia-video`
 
 ## Important
-Les coûts de génération sont facturés par le fournisseur. Vérifie les tarifs actuels avant de vendre des crédits.
+- Pour production : utilisez une instance Redis, un secret JWT sécurisé et HTTPS.
+- Les coûts de génération sont facturés par le fournisseur. Vérifie les tarifs actuels avant de vendre des crédits.
