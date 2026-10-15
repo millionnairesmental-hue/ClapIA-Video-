@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ClapIA Video</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0b10;--panel:#15151d;--border:#2a2a35;--text:#f6f6f7;--muted:#a6a6b2;--accent:#8b7cff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Arial,sans-serif}
+main{max-width:720px;margin:auto;padding:18px 14px 40px}.hero,.card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:18px;margin-bottom:14px}
+.brand{font-size:25px;font-weight:800}.muted{color:var(--muted);font-size:14px}.credits{float:right;font-weight:700}
+label{display:block;font-size:14px;margin:12px 0 6px}textarea,select{width:100%;background:#0e0e14;color:var(--text);border:1px solid:var(--border);border-radius:12px;padding:13px;font-size:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{width:100%;min-height:48px;border-radius:12px;padding:10px 14px;font-size:15px;font-weight:800;cursor:pointer}.primary{border:0;background:linear-gradient(90deg,var(--accent),#6f6bff);color:#fff}
+video{width:100%;max-height:560px;border-radius:16px;background:#000;margin-top:12px}.status{margin-top:10px;color:var(--muted);font-size:14px;min-height:20px}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<section class="hero">
+  <span class="brand">🎬 ClapIA Video</span>
+  <span class="credits">⚡ <span id="credits">20</span></span>
+  <div class="muted" style="clear:both;margin-top:7px">Transforme une idée en vidéo IA.</div>
+</section>
+
+<section class="card">
+  <h2>Créer une vidéo</h2>
+  <label for="prompt">Ton idée</label>
+  <textarea id="prompt" placeholder="Exemple : Un homme travaille dans un immense champ au coucher du soleil, puis s'arrête et regarde le ciel avec espoir."></textarea>
+
+  <div class="grid">
+    <div><label for="ratio">Format</label>
+      <select id="ratio"><option value="9:16">9:16 — TikTok / Shorts</option><option value="16:9">16:9 — YouTube</option><option value="1:1">1:1 — Social</option></select>
+    </div>
+    <div><label for="duration">Durée</label>
+      <select id="duration"><option value="5">5 secondes</option><option value="8">8 secondes</option><option value="10">10 secondes</option></select>
+    </div>
+  </div>
+
+  <label for="style">Style</label>
+  <select id="style"><option>Cinématique réaliste</option><option>Hyperréaliste</option><option>Documentaire</option><option>Animation 3D</option></select>
+
+  <button id="generate" class="primary" style="margin-top:15px">✨ Générer la vidéo</button>
+  <div id="status" class="status" aria-live="polite"></div>
+</section>
+
+<section id="output" class="card" hidden>
+  <h2>Résultat</h2>
+  <video id="video" controls playsinline></video>
+  <a id="download" class="secondary" style="display:block;text-align:center;text-decoration:none;margin-top:10px;padding:14px;border-radius:12px" download="clapia-video.mp4">⬇️ Ouvrir / télécharger</a>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const promptEl=$("prompt"), ratio=$("ratio"), duration=$("duration"), style=$("style");
+const generate=$("generate"), status=$("status"), output=$("output"), video=$("video"), download=$("download"), creditsEl=$("credits");
+
+async function loadCredits(){
+  try{
+    const res = await fetch('/api/credits');
+    if(res.ok){
+      const data = await res.json();
+      creditsEl.textContent = data.credits ?? 0;
+    } else {
+      creditsEl.textContent = 0;
+    }
+  } catch(e){ creditsEl.textContent = 0 }
+}
+
+loadCredits();
+
+generate.addEventListener("click", async () => {
+  const idea=promptEl.value.trim();
+  let credits=Number(creditsEl.textContent)||0;
+  if(idea.length<3){status.textContent="Écris une idée de vidéo.";promptEl.focus();return}
+  if(credits<5){status.textContent="Crédits insuffisants.";return}
+
+  const finalPrompt=`${idea}. Style: ${style.value}. Cinematic camera movement, natural motion, coherent subject, detailed environment, professional lighting, high visual quality, no text, no watermarks.`;
+  generate.disabled=true; status.textContent="Génération en cours… cela peut prendre un moment.";
+  output.hidden=true;
+
+  try{
+    const response=await fetch("/api/generate",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prompt:finalPrompt,aspect_ratio:ratio.value,duration:duration.value})
+    });
+    const data=await response.json();
+    if(!response.ok) throw new Error(data.error||"Erreur serveur");
+    // mettre à jour les crédits depuis le serveur
+    if(typeof data.credits !== 'undefined') creditsEl.textContent = data.credits;
+    video.src=data.videoUrl;
+    download.href=data.videoUrl;
+    output.hidden=false;
+    status.textContent="✅ Vidéo générée avec succès. 5 crédits utilisés.";
+  }catch(err){
+    status.textContent="❌ "+err.message;
+  }finally{generate.disabled=false}
+});
+</script>
+</body>
+</html>

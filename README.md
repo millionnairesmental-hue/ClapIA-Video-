@@ -3,9 +3,17 @@
 MVP mobile-first pour générer une vidéo IA depuis un prompt.
 
 ## Architecture
-- `public/` : interface mobile
+- `public/` : interface mobile (index.html déplacé ici)
 - `server.js` : serveur Express + appel fal.ai
 - La clé `FAL_KEY` reste côté serveur et n'est jamais exposée au navigateur.
+
+## Crédit système
+- Les crédits sont gérés côté serveur (stockage en mémoire, éphémère).
+- Endpoints disponibles:
+  - `GET /api/credits` : récupérer le nombre de crédits pour le client
+  - `POST /api/generate` : génère la vidéo et déduit automatiquement les crédits (coût par défaut 5)
+
+> Remarque : pour la production, stockez les crédits dans une base persistante (Redis, Postgres) et ajoutez une authentification.
 
 ## Lancer
 1. Installer Node.js 20+
